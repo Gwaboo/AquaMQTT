@@ -30,6 +30,8 @@ To integrate this, add the following entry to your `mqtt.yaml` file (assuming yo
     name: "aquamqtt_climate"
     unique_id: "aquamqtt_climate"
     temperature_unit: C
+    # Keep these conservative for normal operation; note BOOST/ABSENCE may go
+    # outside this range depending on your heat pump behavior.
     min_temp: 43
     max_temp: 60
     temp_step: 1
@@ -46,15 +48,16 @@ To integrate this, add the following entry to your `mqtt.yaml` file (assuming yo
     temperature_command_topic: "aquamqtt/ctrl/waterTempTarget"
     temperature_command_template: "{{ value | float }}"
 
-    # Only use standard HVAC modes
+    # HVAC modes mapped from operationMode (ignore BOOST/ABSENCE here)
     mode_state_topic: "aquamqtt/hmi/operationMode"
     mode_state_template: >
+      {% set v = value | trim %}
       {% set map = {
         'MAN ECO OFF': 'off',
         'AUTO': 'auto',
         'MAN ECO ON': 'heat'
       } %}
-      {{ map.get(value, 'auto') }}
+      {{ map.get(v, 'auto') }}
 
     mode_command_topic: "aquamqtt/ctrl/operationMode"
     mode_command_template: >
@@ -70,10 +73,26 @@ To integrate this, add the following entry to your `mqtt.yaml` file (assuming yo
       - "auto"
       - "heat"
 
-    # Preset modes (must match device payloads exactly)
+    # Preset modes share the same underlying topic; map everything else to "none"
     preset_mode_state_topic: "aquamqtt/hmi/operationMode"
+    preset_mode_state_template: >
+      {% set v = value | trim %}
+      {% if v in ['BOOST', 'ABSENCE'] %}
+        {{ v }}
+      {% else %}
+        none
+      {% endif %}
+
     preset_mode_command_topic: "aquamqtt/ctrl/operationMode"
+    preset_mode_command_template: >
+      {% if value in ['BOOST', 'ABSENCE'] %}
+        {{ value }}
+      {% else %}
+        AUTO
+      {% endif %}
+
     preset_modes:
+      - "none"
       - "BOOST"
       - "ABSENCE"
 
